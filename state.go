@@ -623,6 +623,10 @@ func newLState(options Options) *LState {
 		hasErrorFunc: false,
 		mainLoop:     mainLoop,
 		ctx:          nil,
+
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
 	}
 	if options.MinimizeStackMemory {
 		ls.stack = newAutoGrowingCallFrameStack(options.CallStackSize)
@@ -2187,7 +2191,7 @@ func (ls *LState) SetMx(mx int) {
 		for atomic.LoadInt32(&ls.stop) == 0 {
 			runtime.ReadMemStats(&s)
 			if s.Alloc >= limit {
-				fmt.Println("out of memory")
+				fmt.Fprintf(ls.Stderr, "out of memory")
 				os.Exit(3)
 			}
 			time.Sleep(100 * time.Millisecond)

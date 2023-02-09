@@ -3,6 +3,7 @@ package lua
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -218,6 +219,10 @@ type LState struct {
 	hasErrorFunc bool
 	mainLoop     func(*LState, *callFrame)
 	ctx          context.Context
+
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 func (ls *LState) String() string                     { return fmt.Sprintf("thread: %p", ls) }

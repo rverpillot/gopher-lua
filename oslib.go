@@ -3,6 +3,7 @@ package lua
 import (
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -79,18 +80,14 @@ func osDiffTime(L *LState) int {
 }
 
 func osExecute(L *LState) int {
-	var procAttr os.ProcAttr
-	procAttr.Files = []*os.File{os.Stdin, os.Stdout, os.Stderr}
 	cmd, args := popenArgs(L.CheckString(1))
 	args = append([]string{cmd}, args...)
-	process, err := os.StartProcess(cmd, args, &procAttr)
+	command := exec.Command(cmd, args...)
+	command.Stdin = L.Stdin
+	command.Stdout = L.Stdout
+	command.Stderr = L.Stderr
+	err := command.Run()
 	if err != nil {
-		L.Push(LNumber(1))
-		return 1
-	}
-
-	ps, err := process.Wait()
-	if err != nil || !ps.Success() {
 		L.Push(LNumber(1))
 		return 1
 	}

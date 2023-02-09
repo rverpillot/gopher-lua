@@ -63,7 +63,7 @@ func errorIfFileIsClosed(L *LState, file *lFile) {
 	}
 }
 
-func newFile(L *LState, file *os.File, path string, flag int, perm os.FileMode, writable, readable bool) (*LUserData, error) {
+func NewFile(L *LState, file *os.File, path string, flag int, perm os.FileMode, writable, readable bool) (*LUserData, error) {
 	ud := L.NewUserData()
 	var err error
 	if file == nil {
@@ -84,7 +84,7 @@ func newFile(L *LState, file *os.File, path string, flag int, perm os.FileMode, 
 	return ud, nil
 }
 
-func newProcess(L *LState, cmd string, writable, readable bool) (*LUserData, error) {
+func NewProcess(L *LState, cmd string, writable, readable bool) (*LUserData, error) {
 	ud := L.NewUserData()
 	c, args := popenArgs(cmd)
 	pp := exec.Command(c, args...)
@@ -186,7 +186,7 @@ func OpenIo(L *LState) int {
 	mt.RawSetString("lines", L.NewClosure(fileLines, L.NewFunction(fileLinesIter)))
 
 	for _, finfo := range stdFiles {
-		file, _ := newFile(L, finfo.file, "", 0, os.FileMode(0), finfo.writable, finfo.readable)
+		file, _ := NewFile(L, finfo.file, "", 0, os.FileMode(0), finfo.writable, finfo.readable)
 		mod.RawSetString(finfo.name, file)
 	}
 	uv := L.CreateTable(2, 0)
@@ -543,7 +543,7 @@ func ioInput(L *LState) int {
 	}
 	switch lv := L.Get(1).(type) {
 	case LString:
-		file, err := newFile(L, nil, string(lv), os.O_RDONLY, 0600, false, true)
+		file, err := NewFile(L, nil, string(lv), os.O_RDONLY, 0600, false, true)
 		if err != nil {
 			L.RaiseError(err.Error())
 		}
@@ -605,7 +605,7 @@ func ioLines(L *LState) int {
 	}
 
 	path := L.CheckString(1)
-	ud, err := newFile(L, nil, path, os.O_RDONLY, os.FileMode(0600), false, true)
+	ud, err := NewFile(L, nil, path, os.O_RDONLY, os.FileMode(0600), false, true)
 	if err != nil {
 		return 0
 	}
@@ -640,7 +640,7 @@ func ioOpenFile(L *LState) int {
 	case "a+", "ab+":
 		mode = os.O_APPEND | os.O_RDWR | os.O_CREATE
 	}
-	file, err := newFile(L, nil, path, mode, os.FileMode(perm), writable, readable)
+	file, err := NewFile(L, nil, path, mode, os.FileMode(perm), writable, readable)
 	if err != nil {
 		L.Push(LNil)
 		L.Push(LString(err.Error()))
@@ -664,9 +664,9 @@ func ioPopen(L *LState) int {
 
 	switch ioPopenOptions[L.CheckOption(2, ioPopenOptions)] {
 	case "r":
-		file, err = newProcess(L, cmd, false, true)
+		file, err = NewProcess(L, cmd, false, true)
 	case "w":
-		file, err = newProcess(L, cmd, true, false)
+		file, err = NewProcess(L, cmd, true, false)
 	}
 	if err != nil {
 		L.Push(LNil)
@@ -708,7 +708,7 @@ func ioTmpFile(L *LState) int {
 		return 2
 	}
 	L.G.tempFiles = append(L.G.tempFiles, file)
-	ud, _ := newFile(L, file, "", 0, os.FileMode(0), true, true)
+	ud, _ := NewFile(L, file, "", 0, os.FileMode(0), true, true)
 	L.Push(ud)
 	return 1
 }
@@ -720,7 +720,7 @@ func ioOutput(L *LState) int {
 	}
 	switch lv := L.Get(1).(type) {
 	case LString:
-		file, err := newFile(L, nil, string(lv), os.O_WRONLY|os.O_CREATE, 0600, true, false)
+		file, err := NewFile(L, nil, string(lv), os.O_WRONLY|os.O_CREATE, 0600, true, false)
 		if err != nil {
 			L.RaiseError(err.Error())
 		}
