@@ -28,7 +28,7 @@ var ioFuncs = map[string]LGFunction{
 const lFileClass = "FILE*"
 
 type lFile struct {
-	fp     *os.File
+	fp     io.ReadWriter
 	pp     *exec.Cmd
 	writer io.Writer
 	reader *bufio.Reader
@@ -121,7 +121,7 @@ func (file *lFile) Type() lFileType {
 func (file *lFile) Name() string {
 	switch file.Type() {
 	case lFileFile:
-		return fmt.Sprintf("file %s", file.fp.Name())
+		return fmt.Sprintf("file %s", file.fp.(*os.File).Name())
 	case lFileProcess:
 		return fmt.Sprintf("process %s", file.pp.Path)
 	}
@@ -130,9 +130,11 @@ func (file *lFile) Name() string {
 
 func (file *lFile) AbandonReadBuffer() error {
 	if file.Type() == lFileFile && file.reader != nil {
-		_, err := file.fp.Seek(-int64(file.reader.Buffered()), 1)
-		if err != nil {
-			return err
+		if f, ok := file.fp.(io.Seeker); ok {
+			_, err := f.Seek(-int64(file.reader.Buffered()), 1)
+			if err != nil {
+				return err
+			}
 		}
 		file.reader = bufio.NewReaderSize(file.fp, fileDefaultReadBuffer)
 	}
@@ -272,8 +274,10 @@ func fileCloseAux(L *LState, file *lFile) int {
 
 	switch file.Type() {
 	case lFileFile:
-		if err = file.fp.Close(); err != nil {
-			goto errreturn
+		if f, ok := file.fp.(io.Closer); ok {
+			if err = f.Close(); err != nil {
+				goto errreturn
+			}
 		}
 		L.Push(LTrue)
 		return 1
@@ -436,11 +440,12 @@ func fileSeek(L *LState) int {
 		goto errreturn
 	}
 
-	pos, err = file.fp.Seek(L.CheckInt64(3), L.CheckOption(2, fileSeekOptions))
-	if err != nil {
-		goto errreturn
+	if f, ok := file.fp.(io.Seeker); ok {
+		pos, err = f.Seek(L.CheckInt64(3), L.CheckOption(2, fileSeekOptions))
+		if err != nil {
+			goto errreturn
+		}
 	}
-
 	L.Push(LNumber(pos))
 	return 1
 
