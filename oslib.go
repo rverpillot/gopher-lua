@@ -81,7 +81,6 @@ func osDiffTime(L *LState) int {
 
 func osExecute(L *LState) int {
 	cmd, args := popenArgs(L.CheckString(1))
-	args = append([]string{cmd}, args...)
 	command := exec.Command(cmd, args...)
 	command.Stdin = L.Stdin
 	command.Stdout = L.Stdout
