@@ -219,6 +219,7 @@ type LState struct {
 	hasErrorFunc bool
 	mainLoop     func(*LState, *callFrame)
 	ctx          context.Context
+	ctxCancelFn  context.CancelFunc
 
 	Stdin  io.Reader
 	Stdout io.Writer
