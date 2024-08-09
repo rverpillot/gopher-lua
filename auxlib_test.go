@@ -2,8 +2,6 @@ package lua
 
 import (
 	"embed"
-	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -302,10 +300,10 @@ func TestOptChannel(t *testing.T) {
 }
 
 func TestLoadFileForShebang(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	errorIfNotNil(t, err)
 
-	err = ioutil.WriteFile(tmpFile.Name(), []byte(`#!/path/to/lua
+	err = os.WriteFile(tmpFile.Name(), []byte(`#!/path/to/lua
 print("hello")
 `), 0644)
 	errorIfNotNil(t, err)
@@ -323,7 +321,7 @@ print("hello")
 }
 
 func TestLoadFileForEmptyFile(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	errorIfNotNil(t, err)
 
 	defer func() {
@@ -341,24 +339,8 @@ func TestLoadFileForEmptyFile(t *testing.T) {
 //go:embed _lua5.1-tests/all.lua
 var luaTree embed.FS
 
-type luaFileSystem struct {
-	fileSystem embed.FS
-}
-
-func (lfs *luaFileSystem) Open(path string) (io.ReadCloser, error) {
-	return lfs.fileSystem.Open(path)
-}
-
-func (lfs *luaFileSystem) Stat(path string) (os.FileInfo, error) {
-	file, err := lfs.fileSystem.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	return file.Stat()
-}
-
 func TestLoadLuaFileSystemFile(t *testing.T) {
-	L := NewState(Options{LuaFileSystem: &luaFileSystem{fileSystem: luaTree}})
+	L := NewState(Options{LuaFileSystem: luaTree})
 	defer L.Close()
 
 	_, err := L.LoadFile("_lua5.1-tests/all.lua")

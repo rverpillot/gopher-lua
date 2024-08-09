@@ -354,16 +354,16 @@ func (ls *LState) LoadFile(path string) (*LFunction, error) {
 	if len(path) == 0 {
 		file = os.Stdin
 	} else {
-		readCloser, err := ls.Open(path)
+		f, err := ls.openFile(path)
 		defer func() {
-			if readCloser != nil {
-				readCloser.Close()
+			if f != nil {
+				f.Close()
 			}
 		}()
 		if err != nil {
 			return nil, newApiErrorE(ApiErrorFile, err)
 		}
-		file = readCloser
+		file = f
 	}
 
 	reader := bufio.NewReader(file)
