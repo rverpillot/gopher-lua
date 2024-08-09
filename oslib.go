@@ -2,6 +2,7 @@ package lua
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -68,7 +69,7 @@ var osFuncs = map[string]LGFunction{
 }
 
 func osClock(L *LState) int {
-	L.Push(LNumber(float64(time.Now().Sub(startedAt)) / float64(time.Second)))
+	L.Push(LNumber(float64(time.Since(startedAt)) / float64(time.Second)))
 	return 1
 }
 
@@ -78,18 +79,13 @@ func osDiffTime(L *LState) int {
 }
 
 func osExecute(L *LState) int {
-	var procAttr os.ProcAttr
-	procAttr.Files = []*os.File{os.Stdin, os.Stdout, os.Stderr}
-	cmd, args := popenArgs(L.CheckString(1))
-	args = append([]string{cmd}, args...)
-	process, err := os.StartProcess(cmd, args, &procAttr)
+	shell, args := popenArgs(L.CheckString(1))
+	cmd := exec.Command(shell, args...)
+	cmd.Stdin = L.Options.Stdin
+	cmd.Stdout = L.Options.Stdout
+	cmd.Stderr = L.Options.Stderr
+	err := cmd.Run()
 	if err != nil {
-		L.Push(LNumber(1))
-		return 1
-	}
-
-	ps, err := process.Wait()
-	if err != nil || !ps.Success() {
 		L.Push(LNumber(1))
 		return 1
 	}

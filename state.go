@@ -112,6 +112,12 @@ type Options struct {
 	MinimizeStackMemory bool
 	// FileSystem.
 	LuaFileSystem fs.FS
+	// Stdin.
+	Stdin io.Reader
+	// Stdout.
+	Stdout io.Writer
+	// Stderr.
+	Stderr io.Writer
 }
 
 /* }}} */
@@ -686,6 +692,15 @@ func newLState(options Options) *LState {
 		ls.stack = newAutoGrowingCallFrameStack(options.CallStackSize)
 	} else {
 		ls.stack = newFixedCallFrameStack(options.CallStackSize)
+	}
+	if options.Stdin == nil {
+		ls.Options.Stdin = os.Stdin
+	}
+	if options.Stdout == nil {
+		ls.Options.Stdout = os.Stdout
+	}
+	if options.Stderr == nil {
+		ls.Options.Stderr = os.Stderr
 	}
 	ls.reg = newRegistry(ls, options.RegistrySize, options.RegistryGrowStep, options.RegistryMaxSize, al)
 	ls.Env = ls.G.Global
@@ -2259,7 +2274,7 @@ func (ls *LState) SetMx(mx int) {
 		for atomic.LoadInt32(&ls.stop) == 0 {
 			runtime.ReadMemStats(&s)
 			if s.Alloc >= limit {
-				fmt.Println("out of memory")
+				fmt.Fprintln(ls.Options.Stderr, "out of memory")
 				os.Exit(3)
 			}
 			time.Sleep(100 * time.Millisecond)

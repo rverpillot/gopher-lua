@@ -31,7 +31,7 @@ type lFile struct {
 	pp     *exec.Cmd
 	writer io.Writer
 	reader *bufio.Reader
-	stdout io.ReadCloser
+	stdout io.Reader
 	closed bool
 }
 
@@ -81,6 +81,27 @@ func newFile(L *LState, file *os.File, path string, flag int, perm os.FileMode, 
 	}
 	L.SetMetatable(ud, L.GetTypeMetatable(lFileClass))
 	return ud, nil
+}
+
+func newStdin(L *LState, stdin io.Reader) *LUserData {
+	ud := L.NewUserData()
+	ud.Value = &lFile{pp: nil, writer: nil, reader: bufio.NewReaderSize(stdin, fileDefaultReadBuffer), stdout: nil, closed: false}
+	L.SetMetatable(ud, L.GetTypeMetatable(lFileClass))
+	return ud
+}
+
+func newStdout(L *LState, stdout io.Writer) *LUserData {
+	ud := L.NewUserData()
+	ud.Value = &lFile{pp: nil, writer: stdout, reader: nil, stdout: nil, closed: false}
+	L.SetMetatable(ud, L.GetTypeMetatable(lFileClass))
+	return ud
+}
+
+func newStderr(L *LState, stderr io.Writer) *LUserData {
+	ud := L.NewUserData()
+	ud.Value = &lFile{pp: nil, writer: stderr, reader: nil, stdout: nil, closed: false}
+	L.SetMetatable(ud, L.GetTypeMetatable(lFileClass))
+	return ud
 }
 
 func newProcess(L *LState, cmd string, writable, readable bool) (*LUserData, error) {
@@ -166,17 +187,6 @@ func fileIsReadable(L *LState, file *lFile) int {
 	return 0
 }
 
-var stdFiles = []struct {
-	name     string
-	file     *os.File
-	writable bool
-	readable bool
-}{
-	{"stdout", os.Stdout, true, false},
-	{"stdin", os.Stdin, false, true},
-	{"stderr", os.Stderr, true, false},
-}
-
 func OpenIo(L *LState) int {
 	mod := L.RegisterModule(IoLibName, map[string]LGFunction{}).(*LTable)
 	mt := L.NewTypeMetatable(lFileClass)
@@ -184,10 +194,10 @@ func OpenIo(L *LState) int {
 	L.SetFuncs(mt, fileMethods)
 	mt.RawSetString("lines", L.NewClosure(fileLines, L.NewFunction(fileLinesIter)))
 
-	for _, finfo := range stdFiles {
-		file, _ := newFile(L, finfo.file, "", 0, os.FileMode(0), finfo.writable, finfo.readable)
-		mod.RawSetString(finfo.name, file)
-	}
+	mod.RawSetString("stdin", newStdin(L, L.Options.Stdin))
+	mod.RawSetString("stdout", newStdout(L, L.Options.Stdout))
+	mod.RawSetString("stderr", newStderr(L, L.Options.Stderr))
+
 	uv := L.CreateTable(2, 0)
 	uv.RawSetInt(fileDefOutIndex, mod.RawGetString("stdout"))
 	uv.RawSetInt(fileDefInIndex, mod.RawGetString("stdin"))
@@ -278,7 +288,9 @@ func fileCloseAux(L *LState, file *lFile) int {
 		return 1
 	case lFileProcess:
 		if file.stdout != nil {
-			file.stdout.Close() // ignore errors
+			if f, ok := file.stdout.(io.Closer); ok {
+				f.Close() // ignore errors
+			}
 		}
 		err = file.pp.Wait()
 		var exitStatus int // Initialised to zero value = 0
